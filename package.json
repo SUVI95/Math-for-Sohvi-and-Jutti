@@ -1,5 +1,8 @@
 {
   "name": "math-for-sohvi-and-jutti",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "pg": "8.13.1"
+  }
 }
