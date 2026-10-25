@@ -263,6 +263,20 @@ details summary{cursor:pointer;font-weight:700;color:var(--accent)}
 /* modal + fx */
 #modal{position:fixed;inset:0;background:rgba(5,10,20,.55);display:grid;place-items:center;z-index:50;padding:16px}
 #modal .card{max-width:420px;width:100%}
+#modal .tmodal{background:var(--bg);border-radius:20px;max-width:780px;width:100%;max-height:88vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+#modal .tmodal .card{max-width:none}
+.tmh{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 16px;background:var(--surface);border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tmh b{font-family:var(--display);font-size:19px}
+.tmb{display:grid;gap:12px;padding:12px}
+.tmb .widget{display:none}
+.remind{background:var(--surface);border:2px solid var(--neg);border-radius:12px;padding:10px 14px;margin:10px 0}
+.remind p{margin:.3em 0}
+.howto{font-weight:700;margin:12px 0 2px}
+.thbtn{padding:8px 16px;font-size:15px;margin-top:6px}
+.vkt ol li{margin:.25em 0}
+.fb .fbrow{display:block}
+.fb .fbrow::after{content:"";display:block;clear:both}
+.fb .fbrow>.mascot{float:right;width:64px!important;margin:0 0 6px 10px;animation:none}
 .plist{display:grid;gap:6px;margin:10px 0}
 .plist button{text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;display:flex;justify-content:space-between}
 .plist button[aria-current="true"]{border-color:var(--accent);background:var(--accent-soft)}
@@ -993,7 +1007,7 @@ function renderQ(){const q=R.qs[R.i];R.answered=false;R.sel=null;R.multi=new Set
   const vis=(q.visual||'')+(R.mode!=='exam'&&q.help?`<details style="margin-top:6px"><summary>Näytä lukusuora apuna</summary>${q.help}</details>`:'');
   $('#app').innerHTML=`<div class="runbar"><button class="back" id="quit">✕ Lopeta</button><div class="prog"><i style="width:${R.i/R.qs.length*100}%"></i></div><span class="cnt">${R.i+1}/${R.qs.length}</span>${R.mode!=='exam'?`<span class="streak" title="Oikein peräkkäin">${FLAKE}${R.streak}</span>`:`<span class="cnt" id="clock"></span>`}</div>
   <div class="buddy">${mascotImg('','buddy')}<div class="bubble" id="bub">${R.mode==='exam'?'Koe käynnissä! Laske paperilla ja tarkista etumerkki.':R.i===0?`Hei ${DB.active}! Ota paperi ja kynä esiin. Laske ensin paperilla.`:pick(TIPS)}</div></div>
-  <div class="qcard" id="qc"><div class="qmeta"><span>${meta}</span>${R.mode==='practice'?'':`<span>${R.title}</span>`}</div><div class="qprompt">${q.prompt}</div>${vis?`<div class="qvis">${vis}</div>`:''}${R.mode!=='exam'?vk(`<p><b>Ota paperi ja kynä.</b> Kirjoita lasku paperille ja laske välivaiheet ennen kuin vastaat tähän.</p><p>${HINT[q.origin&&/Luku (\d+)/.test(q.origin)?q.origin.match(/Luku (\d+)/)[1]:q.ch]}</p>`):''}<div class="qans">${ans}</div><div id="fb"></div><div class="qact" id="act"><button class="btn" id="chk">${R.mode==='exam'?(R.i===R.qs.length-1?'Palauta koe':'Seuraava'):'Tarkista'}</button></div></div>`;
+  <div class="qcard" id="qc"><div class="qmeta"><span>${meta}</span>${R.mode==='practice'?'':`<span>${R.title}</span>`}</div><div class="qprompt">${q.prompt}</div>${vis?`<div class="qvis">${vis}</div>`:''}${R.mode!=='exam'?helpVinkki(q):''}<div class="qans">${ans}</div><div id="fb"></div><div class="qact" id="act"><button class="btn" id="chk">${R.mode==='exam'?(R.i===R.qs.length-1?'Palauta koe':'Seuraava'):'Tarkista'}</button></div></div>`;
   $('#quit').onclick=()=>{R=null;go(S.ch&&cfgBack()?'chapter':'home')};
   $('#chk').onclick=check;
   if(q.type==='num'){const inp=$('#ans');$$('.pad button').forEach(b=>b.onclick=()=>{if(R.answered)return;const k=b.dataset.k;if(k==='⌫')inp.value=inp.value.slice(0,-1);else if(k===M)inp.value=inp.value.startsWith(M)?inp.value.slice(1):M+inp.value;else if(inp.value.replace(M,'').length<7)inp.value+=k});inp.addEventListener('input',()=>{inp.value=inp.value.replace(/[-–]/g,M).replace(/[^0-9−]/g,'')});if(matchMedia('(pointer:fine)').matches)inp.focus()}
@@ -1011,6 +1025,100 @@ const HINT={
  10:'Mieti ensin, mistä luvusta tehtävä on: lukusuora, itseisarvo, vastaluku vai sulkeiden poisto. Kirjoita lasku paperille.'};
 const PRAISE=['Oikein!','Hienoa!','Juuri niin!','Mahtavaa!','Loistavaa!','Täsmälleen!','Huippua!'];
 const COMFORT=['Ei haittaa! Katso ratkaisu ja kokeile paperilla.','Lähellä! Lue ratkaisu rauhassa.','Virheistä oppii. Katso, miten se lasketaan.','Tarkista etumerkki ensi kerralla!'];
+/* ================= help engine: a vinkki that teaches the method, never the answer ================= */
+const RULE_TXT={
+ abs:'Itseisarvo on luvun etäisyys nollasta. Se ei ole koskaan negatiivinen: |−47| = 47 ja |47| = 47.',
+ opp:'Vastaluku: vaihda etumerkki. Miinus sulkeiden edessä tarkoittaa vastalukua: −(−47) = 47 ja −(47) = −47.',
+ paren:'Sulkeiden poisto: samat merkit → plus, eri merkit → miinus. Esim. 30 − (−2) = 30 + 2 ja 30 + (−2) = 30 − 2.',
+ line:'Plus positiivinen luku = siirry lukusuoralla oikealle. Miinus positiivinen luku = siirry vasemmalle. Esim. −30 + 5: aloita kohdasta −30 ja ota 5 askelta oikealle.',
+ cmp:'Lukusuoralla oikealla oleva luku on suurempi. Kahdesta negatiivisesta luvusta suurempi on se, joka on lähempänä nollaa: −20 > −80.',
+ ineq:'&lt; ja &gt; eivät ota rajalukua mukaan. ≤ ja ≥ ottavat rajaluvun mukaan.',
+ diff:'Ero = suurempi luku − pienempi luku. Jos pienempi on negatiivinen, − (−) muuttuu plussaksi: 50 − (−30) = 50 + 30. Lukusuoralla: matka nollaan + matka nollasta.',
+ words:'Summa = plus. Erotus = miinus (ensimmäinen − toinen). Itseisarvo = | |. Vastaluku = −( ). Lue lauseke lopusta alkuun.',
+ temp:'Lämpimämpää tai nousee = plus. Kylmempää tai laskee = miinus. Kun lasket taaksepäin, tee päinvastainen lasku.',
+ eq:'Kokeile lukua x:n paikalle. Kun lasku täsmää, löysit vastauksen. Taaksepäin kuljetaan päinvastaisella laskulla.',
+ minus:'Laske miinusmerkit: parillinen määrä → plus, pariton määrä → miinus.',
+ sets:'Kokonaisluvut: …, −2, −1, 0, 1, 2, … Luonnolliset luvut: 0, 1, 2, … Nolla ei ole positiivinen eikä negatiivinen.',
+ mid:'Yhtä kaukana = puolivälissä. Laske askeleet lukujen välillä, puolita ja siirry pienemmästä luvusta niin monta askelta oikealle.'
+};
+const helpCh=q=>+(q.origin&&/Luku (\d+)/.test(q.origin)?q.origin.match(/Luku (\d+)/)[1]:q.ch);
+function qText(q){const d=document.createElement('div');d.innerHTML=q.prompt;const big=d.querySelector('.big');const e=big?big.textContent.replace(/\s+/g,' ').trim():'';if(big)big.remove();return{t:d.textContent.replace(/\s+/g,' ').trim(),e}}
+function exprSteps(e){const S=[];let rule='line';
+  if(/^−\(−\(/.test(e))return{rule:'minus',steps:['Aloita sisimmistä sulkeista.','Jokainen miinus sulkeiden edessä vaihtaa etumerkin.','Laske kaikki miinusmerkit: parillinen määrä → plus, pariton määrä → miinus.']};
+  if(/^−\(−?\d+\)$/.test(e))return{rule:'opp',steps:['Miinus sulkeiden edessä tarkoittaa vastalukua.','Vastaluku: vaihda luvun etumerkki. Miinus muuttuu plussaksi, plus muuttuu miinukseksi.']};
+  if(/^\|−?\d+\|$/.test(e))return{rule:'abs',steps:['Itseisarvo kertoo, kuinka kaukana luku on nollasta.','Pyyhi miinusmerkki pois, jos sellainen on. Itseisarvo ei ole koskaan negatiivinen.']};
+  const hasAbs=e.includes('|'),hasPar=e.includes('(');
+  if(!hasAbs&&!hasPar){const m=e.match(/^(−?\d+) ([+−]) (\d+)/);const n=(e.match(/ [+−] /g)||[]).length;
+    if(/\d{4}/.test(e)||(/\d{3}/.test(e)&&n===1)){rule='diff';S.push('Katso lukuja ilman etumerkkiä: kumpi on suurempi?','Vähennä pienempi luku suuremmasta.','Vastaus saa suuremman luvun etumerkin.')}
+    else if(m){S.push(`Aloita luvusta ${m[1]} lukusuoralla (piirrä paperille).`,`${m[2]} ${m[3]} → siirry ${m[3]} askelta ${m[2]==='+'?'oikealle':'vasemmalle'}.`);if(n>1)S.push('Kirjoita välivastaus paperille ja tee seuraava siirto. Yksi lasku kerrallaan vasemmalta oikealle.');else S.push('Mihin kohtaan päädyt? Se on vastaus.')}
+    return{rule,steps:S}}
+  if(/^−\|/.test(e))return{rule:'abs',steps:['Laske ensin itseisarvo | |: pyyhi miinus pois.','Miinus itseisarvon edessä jää vastaukseen: laita miinus vastauksen eteen.']};
+  const pairs=[...e.matchAll(/([+−])\s*\(([+−])(\d+)\)/g)];
+  const lead=e.match(/^−\(([^()]*\d [+−] [^()]*)\)/);
+  if(lead){rule='opp';S.push(`Laske ensin sulkeiden sisällä: <span class="math">${lead[1]}</span>.`,'Miinus sulkeiden edessä = vastaluku: vaihda tuloksen etumerkki.')}
+  if(hasAbs){rule='abs';S.push('Laske ensin pystyviivojen | | sisällä oleva lasku, jos siellä on lasku.','Ota sitten itseisarvo: pyyhi miinus pois. Itseisarvo ei ole koskaan negatiivinen.')}
+  if(pairs.length){if(!hasAbs&&!lead)rule='paren';S.push('Poista sulkeet merkkisäännöillä (samat merkit → +, eri merkit → −):'+pairs.map(m=>`<br><span class="math">${m[1]} (${m[2]}${m[3]}) → ${m[1]===m[2]?'+':M} ${m[3]}</span>`).join(''))}
+  if(!pairs.length&&!lead&&!hasAbs&&hasPar)S.push('Laske ensin sulkeiden sisällä.');
+  if(e.includes('·')||e.includes(':'))S.push('Laske lopuksi kerto- tai jakolasku.');
+  else if((e.replace(/\([^)]*\)|\|[^|]*\|/g,'X').match(/ [+−] /g)||[]).length)S.push('Laske lopuksi vasemmalta oikealle, yksi lasku kerrallaan.');
+  return{rule,steps:S}}
+function eqSteps(e){const S=['Ajattele: mikä luku x:n paikalla tekee laskusta totta?'];let m;const n='(−?\\d+)';
+  if(m=e.match(new RegExp(`^${n} \\+ x = ${n}$`)))S.push(`Montako askelta on luvusta ${m[1]} lukuun ${m[2]}? Jos siirryt oikealle, x on positiivinen. Jos vasemmalle, x on negatiivinen.`);
+  else if(m=e.match(new RegExp(`^x \\+ (\\(?[+−]?\\d+\\)?) = ${n}$`)))S.push(`Kulje takaisin: lukuun ${m[2]} tehdään päinvastainen lasku, eli vähennetään ${m[1]}. Muista merkkisäännöt.`);
+  else if(m=e.match(new RegExp(`^${n} − x = ${n}$`)))S.push(`Luvusta ${m[1]} pitää päästä lukuun ${m[2]}. Montako askelta ja mihin suuntaan? Jos pitää mennä oikealle, vähennetään negatiivinen luku, eli x on negatiivinen.`);
+  else if(m=e.match(new RegExp(`^x − (\\(?[+−]?\\d+\\)?) = ${n}$`)))S.push(`Kulje takaisin: lukuun ${m[2]} tehdään päinvastainen lasku, eli lisätään ${m[1]}. Muista merkkisäännöt.`);
+  else S.push('Laske ensin yhteen ne luvut, jotka tiedät. Silloin lasku lyhenee muotoon x + luku = vastaus tai luku − x = vastaus.');
+  S.push('Tarkista: laita löytämäsi luku x:n paikalle ja laske. Täsmääkö?');return{rule:'eq',steps:S}}
+function getHelp(q){if(q._help)return q._help;const {t,e}=qText(q);const T=t.toLowerCase();const H=(rule,steps)=>({rule,steps});let h=null;
+  if(/sopii kirjaimen/.test(T)&&e.includes('='))h=eqSteps(e);
+  else if(/vertaa ja merkitse/.test(T))h=H('cmp',['Etsi molemmat luvut lukusuoralta (piirrä paperille).','Kumpi on oikeammalla? Se on suurempi.','Merkin kärki osoittaa pienempään lukuun.']);
+  else if(q.type==='order')h=H('cmp',['Piirrä lukusuora paperille ja merkitse luvut siihen.','Lue luvut vasemmalta oikealle: vasemmalla on pienin.','Miinusluvuissa iso numero tarkoittaa pientä lukua: −15 on pienempi kuin −2.']);
+  else if(/merkkisääntö/.test(T))h=H('paren',['Katso kahta merkkiä: ovatko ne samat vai erilaiset?','Samat merkit → +','Eri merkit → −']);
+  else if(/mikä lasku on sama kuin/.test(T))h=H('paren',['Katso laskumerkkiä ja sulkeiden sisällä olevaa etumerkkiä.','Samat merkit → +, eri merkit → −.','Ensimmäinen luku pysyy samana.']);
+  else if(/aamu °c/.test(T))h=H('temp',['Nousi = plus. Laski = miinus.','Jos tiedät aamun lämpötilan: aloita siitä ja tee muutos.','Jos etsit aamun lämpötilaa: kuljet taaksepäin, joten tee päinvastainen lasku.']);
+  else if(/laskujono/.test(T))h=H('paren',['Eteenpäin: tee nuolen lasku.','Taaksepäin: tee päinvastainen lasku (+ muuttuu −, − muuttuu +).','Poista sulkeet merkkisäännöillä ennen laskemista.']);
+  else if(/puuttuva/.test(T))h=H('paren',['Kokeile ensin plussaa ja laske paperilla.','Täsmääkö tulos? Jos ei, kokeile miinusta.','Jos luku on sulkeissa, muista merkkisäännöt.']);
+  else if(/ruudukon/.test(T))h=H('line',['Laske tunnetut luvut yhteen.','Paljonko puuttuu, että summa on oikea?','Tarkista laskemalla koko rivi.']);
+  else if(/tosi vai epätosi/.test(T))h=H(/vastaluku|−\(/.test(t+e)?'opp':'abs',['Laske tai mieti molemmat puolet erikseen paperilla.','Muista: itseisarvo on aina nolla tai positiivinen. Vastaluku = vaihda etumerkki.','Keksi oma esimerkki ja kokeile, pitääkö väite paikkansa. Kokeile myös nollaa.']);
+  else if(/lukusuoran piste|kirjaimen .* paikka/.test(T))h=H('cmp',['Etsi pistettä lähin numero lukusuoralla.','Laske väliviivat yksi kerrallaan: jokainen väli on 1.','Vasemmalle mentäessä luvut pienenevät.']);
+  else if(/lämpömittari näyttää\?/.test(T))h=H('temp',['Pitkät viivat ovat 5 asteen välein, lyhyet 1 asteen välein.','Laske lyhyet viivat lähimmästä numerosta.','Nollan alapuolella luku on miinusmerkkinen.']);
+  else if(/piirretty lasku/.test(T))h=H('line',['Katso, mistä hyppy alkaa (musta piste).','Kumpaan suuntaan nuoli menee? Oikealle = +, vasemmalle = −.','Laske hypyn pituus väliviivoista.']);
+  else if(/tikkaa/.test(T))h=H('line',['Valitse yksi luku taulusta.','Laske, paljonko summaan vielä puuttuu: summa − valitsemasi luku.','Löytyykö puuttuva luku taulusta? Jos ei, kokeile toista lukua.']);
+  else if(/kirjoita luvut, joiden itseisarvo/.test(T))h=H('abs',['Itseisarvo = etäisyys nollasta.','Mitkä luvut ovat juuri tämän verran nollasta? Katso nollan molemmat puolet.','Voiko etäisyys olla negatiivinen?']);
+  else if(/luettele|kokonaisluvut väliltä/.test(T))h=H(/itseisarvo/.test(T)?'abs':'opp',['Käy luvut läpi yksi kerrallaan.','Laske jokaiselle luvulle itseisarvo tai vastaluku paperille.','Valitse ne, jotka sopivat ehtoon.']);
+  else if(/sopivat kirjaimen|toteuttavat ehdon/.test(T))h=H('ineq',['Kokeile jokaista lukua yksi kerrallaan: sopiiko se?','&lt; ja &gt;: rajaluku EI kuulu mukaan. ≤ ja ≥: rajaluku kuuluu mukaan.','”Tai” tarkoittaa, että riittää, kun toinen ehto toteutuu.']);
+  else if(/yksikön päässä/.test(T))h=H('mid',['Aloita annetusta luvusta.','Siirry sama määrä askelia oikealle ja vasemmalle.','Vastauksia on kaksi.']);
+  else if(/nolla.*positiivinen|positiivinen vai negatiivinen\?$|luonnollisia|kokonaislukuja|positiivisia lukuja/.test(T)&&!/päättele/.test(T)&&!e)h=H('sets',['Kokonaisluku on luku ilman desimaaleja tai murtolukua.','Luonnolliset luvut: 0, 1, 2, 3, …','Positiivinen = nollaa suurempi. Negatiivinen = nollaa pienempi.']);
+  else if(/laatikon|laatikosta/.test(T))h=H(/itseisarvo/.test(T)?'abs':/vastaluku/.test(T)?'opp':'cmp',['Kirjoita jokaisen luvun viereen paperille sen itseisarvo tai vastaluku, jos tehtävä kysyy niitä.','Vertaa sitten lukuja keskenään.','Itseisarvo = etäisyys nollasta. Vastaluku = vaihda etumerkki.']);
+  else if(/positiivinen vai negatiivinen/.test(T))h=H('diff',['Katso lukuja ilman etumerkkiä.','Kumpi on suurempi: plus-luku vai miinus-luku?','Suurempi voittaa ja antaa vastaukselle etumerkin. Jos lukuja on monta, laske plussat ja miinukset erikseen.']);
+  else if(/numeroinen|(suurin|pienin) .*kokonaisluku/.test(T))h=H('cmp',['Kirjoita paperille esimerkkejä: kaksinumeroinen on esim. 25 tai −25.','Muista negatiiviset luvut! Pienin luku on kauimpana vasemmalla.','Suurin negatiivinen luku on lähimpänä nollaa.']);
+  else if(/yhtä kaukana/.test(T))h=H('mid',['Laske, montako askelta lukujen välissä on.','Puolita se.','Siirry pienemmästä luvusta niin monta askelta oikealle.']);
+  else if(/yhtä (pienempi|suurempi)/.test(T))h=H('line',['”Yhtä” tarkoittaa yhtä yksikköä.','Pienempi = siirry 1 askel vasemmalle. Suurempi = siirry 1 askel oikealle.']);
+  else if(/kuinka paljon (suurempi|pienempi)/.test(T))h=H('diff',['Piirrä molemmat luvut lukusuoralle.','Laske askeleet lukujen välillä.','Jos nolla on välissä: matka nollaan + matka nollasta eteenpäin.']);
+  else if(/(suurempi|pienempi) kuin luku/.test(T))h=H('line',['Suurempi kuin = lisää (+), siirry oikealle.','Pienempi kuin = vähennä (−), siirry vasemmalle.','Kirjoita lasku paperille: luku ± määrä.']);
+  else if(/aikaero/.test(T))h=H('diff',['Aikaero = vyöhykkeiden ero: suurempi − pienempi.','Jos toinen vyöhyke on negatiivinen: − (−) muuttuu plussaksi.']);
+  else if(/kello on/.test(T))h=H('diff',['Laske aikavyöhykkeiden ero.','Lisää tai vähennä ero kellonaikaan.','Jos tulos on alle 0, lisää 24 (edellinen päivä). Jos yli 23, vähennä 24.']);
+  else if(/hissi|kerrokse/.test(T))h=H('line',['Ylös = plus, alas = miinus.','Kirjoita koko lasku paperille alusta loppuun.','Laske vasemmalta oikealle.']);
+  else if(/lize|koulu/.test(T))h=H('diff',['Piirrä viiva ja laita koulu keskelle.','Samalla puolella koulua: vähennä matkat. Eri puolilla: lisää matkat.','Lumi ja Lenni: vähennä ensin ero kokonaismatkasta ja jaa loppu tasan kahteen osaan.']);
+  else if(/meriveden/.test(T))h=H('temp',['Korkeammalla = plus. Matalammalla = miinus.','Aloita luvusta −13 ja siirry lukusuoralla.']);
+  else if(/täydennä taulukko/.test(T))h=H('opp',['Vastaluku: vaihda etumerkki.','Itseisarvo: pyyhi miinus pois.']);
+  else if(/(^| )ero[ .,?]|lämpötilaero|korkeusero|planeet/.test(T))h=H('diff',['Ero = suurempi luku − pienempi luku.','Jos pienempi luku on negatiivinen: − (−) muuttuu plussaksi.','Lukusuoralla: matka nollaan + matka nollasta.']);
+  else if(/laski|nousi|nousee|laskee|lämpimämpää|kylmempää|lämpötila/.test(T)){const back=/aamulla/.test(T)&&/(illalla|iltapäivällä)/.test(T);
+    h=/kylmimmän päivän/.test(T)?H('cmp',['Kylmin päivä = pienin luku = eniten miinusta.','Etsi taulukosta pienin luku.'])
+     :/kuinka monta astetta|muuttui/.test(T)?H('diff',['Merkitse molemmat lämpötilat lukusuoralle.','Laske askeleet lukujen välillä.','Jos nolla on välissä: matka nollaan + matka nollasta.'])
+     :H('temp',['Lämpimämpää tai nousee = plus. Kylmempää tai laskee = miinus.',back?'Kuljet ajassa taaksepäin: tee päinvastainen lasku.':'Aloita annetusta lämpötilasta lukusuoralla.','Kirjoita lasku paperille ja laske.'])}
+  else if(/päättele kokonaisluku/.test(T))h=H('abs',['Käy ehdot läpi yksi kerrallaan.','Itseisarvo kertoo etäisyyden nollasta: luku voi olla nollan kummalla puolella tahansa. Mikä puoli sopii muihin ehtoihin?','Tarkista lopuksi, että kaikki ehdot täyttyvät.']);
+  else if(/^(mikä on luvun|merkitse ja laske luvun) \S+ vastaluku/.test(T)&&!e)h=H('opp',['Vastaluku on yhtä kaukana nollasta, mutta nollan toisella puolella.','Vaihda vain etumerkki: plus → miinus, miinus → plus.']);
+  else if(/summa|erotus|itseisarvo|vastaluku|lauseke|tulo/.test(T)&&!e)h=H('words',['Lue lauseke lopusta alkuun: viimeinen sana tehdään viimeisenä.','Summa = +. Erotus = − (ensimmäinen − toinen). Itseisarvo = | |. Vastaluku = −( ).','Kirjoita lasku paperille. Negatiivinen luku sulkeisiin, kun sen eteen tulee laskumerkki. Laske sitten.']);
+  else if(e)h=exprSteps(e);
+  if(!h||!h.steps.length)h=H('line',[HINT[helpCh(q)]]);
+  h.ch=helpCh(q);q._help=h;return h}
+function helpVinkki(q){const h=getHelp(q);return vk(`<p><b>Ota paperi ja kynä.</b> Laske ensin paperilla, sitten vastaa tähän.</p><p><b>Näin etenet:</b></p><ol>${h.steps.map(s=>`<li>${s}</li>`).join('')}</ol>${RULE_TXT[h.rule]?`<p class="tip"><b>Muista:</b> ${RULE_TXT[h.rule]}</p>`:''}<button class="btn ghost thbtn" type="button" data-theory="${h.ch}">Etkö muista? Lue luvun ${h.ch} teoria</button>`)}
+function remindBox(q){const h=getHelp(q);return `<div class="remind"><b>Muistutus teoriasta</b><p>${RULE_TXT[h.rule]||HINT[h.ch]}</p><button class="btn ghost thbtn" type="button" data-theory="${h.ch}">Lue luvun ${h.ch} teoria</button></div><p class="howto">Näin se lasketaan:</p>`}
+function openTheory(ch){if(!THEORY[ch])return;const m=$('#modal');m.hidden=false;m.innerHTML=`<div class="tmodal" role="dialog" aria-label="Luvun ${ch} teoria"><div class="tmh"><b>Luku ${ch} · ${CH[ch].t}</b><button class="btn" id="tmClose" type="button">Sulje ja jatka</button></div><div class="tmb">${THEORY[ch]()}</div></div>`;const close=()=>{m.hidden=true;m.innerHTML=''};$('#tmClose').onclick=close;m.onclick=e=>{if(e.target===m)close()}}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('.thbtn');if(b){e.preventDefault();openTheory(+b.dataset.theory)}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden){$('#modal').hidden=true;$('#modal').innerHTML=''}});
+
 function cfgBack(){return R===null&&S.view!=='home'&&S.ch}
 function showAns(q){if(q.type==='num')return f(q.ans)+(q.unit?' '+q.unit:'');if(q.type==='mc')return q.choices[q.ans];if(q.type==='order')return q.items.slice().sort((a,b)=>a-b).map(f).join(' &lt; ');if(q.type==='multi')return q.ansText||q.ansSet.map(i=>q.opts[i].label).join(', ')}
 function check(){const q=R.qs[R.i];if(R.answered){next();return}
@@ -1031,7 +1139,7 @@ function check(){const q=R.qs[R.i];if(R.answered){next();return}
   const bud=$('#buddy'),bub=$('#bub');bounce(bud,ok?'jump':'oops');
   if(bub){bub.className='bubble '+(ok?'ok':'no');bub.textContent=ok?(R.streak>=10?`${R.streak} putkeen! Olet mestari, ${DB.active}!`:R.streak>=5?`${R.streak} oikein putkeen! Tuplapisteet!`:R.streak>=3?`Putki ${R.streak}! Saat bonuspisteitä!`:praise+' Hyvä '+DB.active+'!'):pick(COMFORT)}
   setTimeout(()=>{const fm=$('#fbBuddy');bounce(fm,ok?'jump':'oops');if(ok)starBurst(fm,gain)},30);
-  $('#fb').innerHTML=`<div class="fb ${ok?'ok':'no'}"><div class="fbrow">${mascotImg('','fbBuddy')}<div><h3>${ok?praise+(gain?` +${gain}`:''):'Ei aivan.'}</h3>${ok?'':`<p>Oikea vastaus: <b>${showAns(q)}</b>${given?` · sinun vastauksesi: ${given}`:''}</p>`}${q.explain||''}${!ok&&R.mode==='practice'&&R.extra<=6&&R.qs[R.qs.length-1]===q?'<p class="tip">Tämä tehtävä tulee uudelleen kierroksen lopussa.</p>':''}</div></div></div>`;
+  $('#fb').innerHTML=`<div class="fb ${ok?'ok':'no'}"><div class="fbrow">${mascotImg('','fbBuddy')}<div><h3>${ok?praise+(gain?` +${gain}`:''):'Ei aivan.'}</h3>${ok?'':`<p>Oikea vastaus: <b>${showAns(q)}</b>${given?` · sinun vastauksesi: ${given}`:''}</p>${remindBox(q)}`}${q.explain||''}${!ok&&R.mode==='practice'&&R.extra<=6&&R.qs[R.qs.length-1]===q?'<p class="tip">Tämä tehtävä tulee uudelleen kierroksen lopussa.</p>':''}</div></div></div>`;
   $('#chk').textContent=R.i===R.qs.length-1?'Katso tulos':'Seuraava →';
   if(!ok&&R.mode!=='exam'){const b=document.createElement('button');b.className='btn';b.id='retry';b.type='button';b.textContent='Yritä uudelleen';b.onclick=()=>{renderQ();window.scrollTo({top:0})};$('#chk').classList.add('ghost');$('#act').insertBefore(b,$('#chk'));b.focus()}
   else $('#chk').focus();
